@@ -1,4 +1,4 @@
-# odroid-c2-kernel-4.12-ansible
+# odroid-c2-linux-4.12-ansible
 Ansible Role to compile Linux 4.12 kernel and u-boot 2017.07 on an Odroid C2 with one command
 
 ## Purpose
