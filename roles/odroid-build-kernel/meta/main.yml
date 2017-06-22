@@ -1,0 +1,16 @@
+---
+dependencies: []
+
+galaxy_info:
+  author: Sirko Zidlewitz
+  description: Mainline Linux kernel 4.12 for Ubuntu 16.04 on Odroid C2 Boards
+  company: "hopefully soon to be found again" # keep fingers crossed
+  license: "GPL v3" # but do not really care
+  min_ansible_version: 2.2
+  platforms:
+    - name: Ubuntu
+      versions:
+      - '16.04'
+      - xenial
+  galaxy_tags:
+    - kernel

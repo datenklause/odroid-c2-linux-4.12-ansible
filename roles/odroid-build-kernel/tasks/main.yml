@@ -1,0 +1,88 @@
+---
+# Questions?  Email: headcrack@datenklause.de
+#            Jabber: sirko@datenklause.de
+# 
+#
+- name: apt update
+  apt: cache_valid_time=86400 update_cache=yes
+
+- name: install packages
+  apt: name={{item}} state=present
+  with_items:
+    - lzop 
+    - build-essential
+    - gcc
+    - gcc-5-plugin-dev
+    - bc
+    - libncurses5-dev
+    - git
+    - libssl-dev # for signing with meson tools
+    - u-boot-tools
+    - device-tree-compiler
+
+      #- name: copy kernel source to remote
+      #  copy:
+      #    src: linux.tar.bz2
+      #    dest: /root/linux.tar.bz2
+      #  register: linux_archive
+
+      #- name: extract kernel src archive
+      #  unarchive:
+      #    src: /root/linux.tar.bz2
+      #    dest: /root/
+      #    remote_src: True
+      #  when: linux_archive.changed
+
+      #- name: make mrproper clean
+      #  shell: make mrproper clean
+      #  args:
+      #    chdir: /root/linux/
+
+- name: git clone kernel
+  git:
+     repo: 'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git'
+     dest: /root/linux
+     version: master
+     depth: 1
+     force: yes
+     #  when: linux_archive.changed
+
+- name: copy kernel .config for C2
+  copy:
+     src: gx_defconfig
+     dest: /root/linux/c2-config
+  #  shell: wget https://raw.githubusercontent.com/ioft/linux/master/arch/arm64/configs/gx_defconfig
+  #  chdir: /root/linux/arch/arm64/configs/
+
+- name: copy UART debug settings for kernel .config for UART
+  copy:
+     src: dot-config-debug.txt
+     dest: /root/linux/debug-vars-txt
+
+#-----------------
+- name: compile kernel
+  shell: "{{ item }}"
+  args:
+     chdir: /root/linux
+  with_items:
+    - "awk -F=  '!a[$1]++' debug-vars-txt c2-config > config-tmp"
+    - 'yes "" | make oldconfig'
+    - make -j4 Image 
+    - make -j4 modules 
+    - make -j4 dtbs
+    - make modules_install
+    - cp -rf arch/arm64/boot/Image /media/boot/Image
+    - cp -rf arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dtb /media/boot/meson64_odroidc2.dtb
+
+
+######################################################     
+# hint: if you have run the playbook once, all hardkernel binaries
+# are cached in role_dir/files . Just comment out 
+# the following line:
+- include: fetch-hardkernel-binaries.yml
+
+
+# do not comment out, until you knwo what you do.
+# new kernel runs only with new u-boot
+- include: u-boot.yml
+

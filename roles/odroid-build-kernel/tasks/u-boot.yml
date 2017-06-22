@@ -1,0 +1,125 @@
+---
+# https://github.com/afaerber/meson-tools
+#
+# to get installed u-boot version:
+# dd if=/dev/mmcblk0 count=1024 2>/dev/null | strings | grep -e '^U-Boot'
+#
+#
+# http://git.denx.de/?p=u-boot.git;a=blob_plain;f=board/amlogic/odroid-c2/README;hb=HEAD
+- name: git clone u-boot
+  git:
+    repo: 'git://git.denx.de/u-boot.git'
+    dest: /root/u-boot
+    version: master
+    depth: 1
+    force: yes
+  register: uboot
+
+- name: compile latest u-boot
+  shell: "{{ item }}"
+  args:
+     chdir: /root/u-boot
+  with_items:
+    - make clean
+    - make odroid-c2_defconfig
+    - make -j4
+  when: uboot.changed
+
+- name: git clone meson-tools
+  git:
+    repo: 'https://github.com/afaerber/meson-tools.git'
+    dest: /root/meson-tools
+    version: master
+    depth: 1
+    force: yes
+  register: mesontools
+
+- name: build meson-tools
+  shell: make -j4
+  args:
+    chdir: /root/meson-tools/
+  when: mesontools.changed
+
+
+- name: copy hardkernel binaries and fip_create to remote
+  copy:
+    src: c2-binaries.tar.gz
+    dest: /tmp
+
+- name: extract c2-binaries from archive
+  shell: tar -xzf c2-binaries.tar.gz
+  args: 
+    chdir: /tmp
+
+- name: copy hardkernel binaries and fip_create to remote
+  copy:
+    remote_src: yes
+    src: /root/u-boot/u-boot.bin
+    dest: /tmp/c2-binaries/u-boot.bin
+
+- name: fip_create
+  shell: ./fip_create --bl30 bl30.bin --bl301 bl301.bin --bl31 bl31.bin --bl33 u-boot.bin fip.bin
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: fip_create --dump fip.bin
+  shell: ./fip_create --dump fip.bin
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: bl2.package
+  shell: 'cat bl2.package fip.bin > boot_new.bin'
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: Sign u-boot image with amlbootsig from meson-tools (replaces aml_encrypt_gxb). 
+  shell: /root/meson-tools/amlbootsig boot_new.bin u-boot.img
+  args:
+    chdir: /tmp/c2-binaries/
+
+- name: create u-boot.gxbb
+  shell: 'dd if=u-boot.img of=u-boot.gxbb bs=512 skip=96'
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: generate ramdisk uInitrd
+  shell: mkimage -A arm64 -O linux -T ramdisk -a 0x0 -e 0x0 -n u-boot.img -d u-boot.img uInitrd
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: copy uInitrd to /media/boot/
+  copy:
+    remote_src: yes
+    src: /tmp/c2-binaries/uInitrd
+    dest: /media/boot/uInitrd
+
+- name: flashing bl1.bin.hardkernel conv=fsync bs=1 count=442
+  shell: dd if=bl1.bin.hardkernel of=/dev/mmcblk0 conv=fsync bs=1 count=442
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: flashing bl1.bin.hardkernel conv=fsync bs=512 skip=1 seek=1
+  shell: dd if=bl1.bin.hardkernel of=/dev/mmcblk0 conv=fsync bs=512 skip=1 seek=1
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: flashing u-boot.gxbb
+  shell: dd if=u-boot.gxbb of=/dev/mmcblk0 conv=fsync bs=512 seek=97
+  args: 
+    chdir: /tmp/c2-binaries/
+
+- name: copy boot.cmd
+  copy:
+    src: boot.cmd
+    dest: /media/boot/boot.cmd
+
+- name: generate boot.src out of boot.cmd
+  shell: mkimage -C none -A arm -T script -d boot.cmd boot.scr
+  args: 
+    chdir: /media/boot/
+
+- name: umount and fsck vfat file system
+  shell: "{{ item }}"
+  with_items:
+    - umount /media/boot
+    - fsck -y /dev/mmcblk0p1

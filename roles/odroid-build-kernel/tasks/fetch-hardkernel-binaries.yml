@@ -1,0 +1,63 @@
+---
+- name: git clone legacy u-boot because of working fip_create
+  git:
+     repo: 'https://github.com/hardkernel/u-boot.git'
+     dest: /root/legacy-u-boot
+     version: 'odroidc2-v2015.01'
+     depth: 1
+     force: yes
+
+- name: mkdir /tmp/c2-binaries
+  file: 
+    path: '/tmp/c2-binaries'
+    state: directory
+    mode: 0700
+
+- name: fetch firmware bl30.bin to local
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/fip/gxb/bl30.bin
+    dest: /tmp/c2-binaries/bl30.bin
+
+- name: fetch firmware bl301.bin 
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/fip/gxb/bl301.bin
+    dest: /tmp/c2-binaries/bl301.bin
+
+- name: fetch firmware bl31.bin 
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/fip/gxb/bl31.bin
+    dest: /tmp/c2-binaries/bl31.bin
+
+- name: fetch bl2.package
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/fip/gxb/bl2.package
+    dest: /tmp/c2-binaries/bl2.package
+
+- name: fetch bl1.bin.hardkernel
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/sd_fuse/bl1.bin.hardkernel
+    dest: /tmp/c2-binaries/bl1.bin.hardkernel
+
+- name: build fip_create
+  shell: make
+  args: 
+    chdir: /root/legacy-u-boot/tools/fip_create
+
+- name: fetch fip_create
+  fetch:
+    flat: yes
+    src: /root/legacy-u-boot/tools/fip_create/fip_create
+    dest: /tmp/c2-binaries/fip_create
+
+- name: create archive
+  local_action: 'shell tar -czf c2-binaries.tar.gz c2-binaries/'
+  args: 
+    chdir: /tmp
+
+- name: mv archive to role dir
+  local_action: "shell mv /tmp/c2-binaries.tar.gz {{role_path}}/files/"

@@ -1,0 +1,15 @@
+---
+- name: Playbook for compiling mainline u-boot and kernel
+  hosts: yourhost.domain   # <-replace with your target host
+  
+  gather_facts: true
+  remote_user: root
+  roles:
+    - odroid-build-kernel
+
+# donations are welcome.
+# beeing senior sysadmin, because of adhd, i am no longer able
+# to code without medication, but i'm struggling to afford it each month. 
+# Everyone donating will get live support via email/jabber/xmpp.
+# Bitcoin: 1M6Vv7MLCgGQRZhH2MqgU3wGhYa85UJimE
+# Paypal: sirko@datenklause.de
