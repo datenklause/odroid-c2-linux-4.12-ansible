@@ -65,7 +65,7 @@
   args:
      chdir: /root/linux
   with_items:
-    - "awk -F=  '!a[$1]++' debug-vars-txt c2-config > config-tmp"
+    - "awk -F=  '!a[$1]++' debug-vars-txt c2-config > .config"
     - 'yes "" | make oldconfig'
     - make -j4 Image 
     - make -j4 modules 
